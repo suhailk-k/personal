@@ -64,8 +64,15 @@ jobs:
         with:
           path: |
             .next/cache
-          # Generate a new cache whenever packages or source files change.
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          # Generate a new cache whenever packages, source files, or env files
+          # change.
+          #
+          # The env files belong in this key. NEXT_PUBLIC_ values are inlined
+          # into the compiled chunks at build time, so a cache keyed only on
+          # source hands back chunks with the previous value already baked in.
+          # Changing just .env.production then produces a green run that ships
+          # the old backend URL, which is a genuinely hard failure to spot.
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}-${{ hashFiles('.env*') }}
           # If source files changed but packages didn't, rebuild from a prior cache.
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
