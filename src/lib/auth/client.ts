@@ -65,6 +65,16 @@ async function request<T>(
 
   const headers = new Headers(requestInit.headers);
   headers.set("Content-Type", "application/json");
+  /**
+   * Required when the backend is reached through an ngrok free tunnel. Without
+   * it ngrok answers browser-shaped requests with its own interstitial warning
+   * page -- `text/plain`, no CORS headers -- so every call fails as a CORS
+   * error rather than reaching the backend at all.
+   *
+   * Harmless on any other host, which is why it is unconditional: making it
+   * conditional would mean the frontend has to know how it is being hosted.
+   */
+  headers.set("ngrok-skip-browser-warning", "true");
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
