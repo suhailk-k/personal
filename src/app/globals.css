@@ -24,3 +24,32 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Brief lateral shake on a rejected login. Small amplitude and short
+   duration: enough to register as a rejection, not enough to feel punitive. */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-shake {
+  animation: shake 300ms ease-out;
+}
+
+/* Motion here is feedback, not decoration, so it is safe to drop entirely
+   for anyone who has asked the system for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shake {
+    animation: none;
+  }
+}
