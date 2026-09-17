@@ -72,12 +72,22 @@ jobs:
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
       - name: Build with Next.js
-        # Set this under Settings > Secrets and variables > Actions > Variables.
-        # It is a repository *variable*, not a secret: NEXT_PUBLIC_ values are
-        # compiled into the client bundle and readable by anyone.
-        env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-        run: ${{ steps.detect-package-manager.outputs.runner }} next build
+        # The backend URL comes from .env.production. A repository variable
+        # overrides it when set, under Settings > Secrets and variables >
+        # Actions > Variables. It is a *variable*, not a secret: NEXT_PUBLIC_
+        # values are compiled into the client bundle and readable by anyone.
+        #
+        # The variable is exported only when non-empty. Declaring it under
+        # `env:` unconditionally puts an empty string into the environment when
+        # no variable is set, and an empty environment value takes precedence
+        # over .env.production -- so the build would silently ship with no
+        # backend URL at all.
+        run: |
+          API_URL='${{ vars.NEXT_PUBLIC_API_URL }}'
+          if [ -n "$API_URL" ]; then
+            export NEXT_PUBLIC_API_URL="$API_URL"
+          fi
+          ${{ steps.detect-package-manager.outputs.runner }} next build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

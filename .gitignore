@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 # The example holds placeholders only and documents which variables exist.
 !.env.example
+# The production backend URL is public by construction: it is compiled into the
+# client bundle. Committing it keeps the deployed build reproducible.
+!.env.production
 
 # vercel
 .vercel
