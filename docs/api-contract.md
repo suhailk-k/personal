@@ -228,14 +228,17 @@ it is not reachable — check the tunnel and that the machine is awake.
 
 ## Checklist
 
-- [ ] `OPTIONS` preflight returns `204` with CORS headers
-- [ ] `Access-Control-Allow-Origin` echoes one exact origin, not `*`
-- [ ] Login returns an identical response for unknown user and wrong password
-- [ ] Dummy hash verification runs on the unknown-user path
-- [ ] Refresh rotates the token and never returns the same one
-- [ ] Replaying a used refresh token revokes the whole family
-- [ ] Logout is idempotent and returns `204`
-- [ ] Rate limiting active on login and refresh, with `Retry-After` on `429`
-- [ ] Passwords hashed with scrypt/argon2id/bcrypt, compared in constant time
-- [ ] JWT secret from an environment variable, algorithm pinned on verify
-- [ ] Error responses never leak stack traces or internals
+Each item is implemented in the `personal-backend` project and held in place by the test named
+after it. Re-verify with `npm test` there.
+
+- [x] `OPTIONS` preflight returns `204` with CORS headers — *CORS › answers preflight with 204 and the required headers*
+- [x] `Access-Control-Allow-Origin` echoes one exact origin, not `*` — *CORS › echoes one exact origin, never a wildcard*
+- [x] Login returns an identical response for unknown user and wrong password — *POST /auth/login › gives an identical answer for a wrong password and an unknown user*
+- [x] Dummy hash verification runs on the unknown-user path — *password hashing › dummy hash is a real verifiable hash, so the unknown-user path costs the same*
+- [x] Refresh rotates the token and never returns the same one — *POST /auth/refresh › rotates the token and never returns the same one*
+- [x] Replaying a used refresh token revokes the whole family — *POST /auth/refresh › revokes the whole family when a used token is replayed*
+- [x] Logout is idempotent and returns `204` — *POST /auth/logout › is idempotent and never reveals whether the token was real*
+- [x] Rate limiting active on login and refresh, with `Retry-After` on `429` — *rate limiting › blocks repeated failures and sends Retry-After*, *rate limiting › blocks repeated refresh failures and sends Retry-After*
+- [x] Passwords hashed with scrypt/argon2id/bcrypt, compared in constant time — `crypto.scrypt` and `timingSafeEqual` in `src/domain/passwords.ts`, covered by *password hashing › verifies a password against its own hash*
+- [x] JWT secret from an environment variable, algorithm pinned on verify — *configuration › refuses a JWT secret that is too short to be safe*, *access tokens › rejects an unsigned token claiming alg: none*
+- [x] Error responses never leak stack traces or internals — *error handler › turns an unexpected exception into INTERNAL_ERROR with no detail*

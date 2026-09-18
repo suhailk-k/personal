@@ -1,4 +1,4 @@
-import { ApiError, type ApiErrorCode, type AuthSession, type User } from "./types";
+import { ApiError, type ApiErrorCode, type AuthSession } from "./types";
 
 /**
  * HTTP client for the backend described in docs/api-contract.md.
@@ -126,8 +126,19 @@ export function logout(refreshToken: string): Promise<void> {
   });
 }
 
-export function me(accessToken: string): Promise<{ user: User }> {
-  return request<{ user: User }>("/auth/me", { accessToken });
+/**
+ * Any authenticated call, for endpoints beyond the auth ones above.
+ *
+ * Callers reach this through `apiFetch` on the auth context rather than
+ * directly: that wrapper owns the access token and adds the
+ * refresh-once-and-replay behaviour a bare call here does not have.
+ */
+export function authorizedRequest<T>(
+  path: string,
+  accessToken: string,
+  init: RequestInit = {},
+): Promise<T> {
+  return request<T>(path, { ...init, accessToken });
 }
 
 export function health(): Promise<{ status: string }> {

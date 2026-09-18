@@ -34,6 +34,11 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   /** Valid access token, refreshing first if necessary. Null when signed out. */
   getAccessToken: () => Promise<string | null>;
+  /**
+   * Authenticated call against the backend. Attaches the access token, and on
+   * a rejected token refreshes once and replays the request.
+   */
+  apiFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -160,9 +165,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return accessTokenRef.current ?? (await runRefresh());
   }, [runRefresh]);
 
+  /**
+   * The single way the app talks to authenticated endpoints.
+   *
+   * An access token lives fifteen minutes, so a tab left open will hit
+   * INVALID_TOKEN during normal use. Refreshing and replaying here means every
+   * caller sees that as a slightly slower call rather than an error it has to
+   * handle. Exactly one retry: if a token minted seconds ago is also rejected,
+   * the session is genuinely over and retrying again would only loop.
+   *
+   * `init.body` must be a plain value (a string, as `JSON.stringify` gives).
+   * A stream body cannot be read twice and would replay empty.
+   */
+  const apiFetch = useCallback(
+    async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new ApiError(
+          "INVALID_TOKEN",
+          "Your session has ended. Please sign in again.",
+          401,
+        );
+      }
+
+      try {
+        return await api.authorizedRequest<T>(path, token, init);
+      } catch (error: unknown) {
+        const isRejectedToken =
+          error instanceof ApiError && error.code === "INVALID_TOKEN";
+        if (!isRejectedToken) {
+          throw error;
+        }
+
+        // `runRefresh` clears the session itself when the refresh token is
+        // rejected, so a null here already means "signed out".
+        const renewed = await runRefresh();
+        if (!renewed) {
+          throw error;
+        }
+
+        try {
+          return await api.authorizedRequest<T>(path, renewed, init);
+        } catch (replayError: unknown) {
+          if (
+            replayError instanceof ApiError &&
+            replayError.code === "INVALID_TOKEN"
+          ) {
+            clearSession();
+          }
+          throw replayError;
+        }
+      }
+    },
+    [clearSession, getAccessToken, runRefresh],
+  );
+
   const value = useMemo(
-    () => ({ status, user, signIn, signOut, getAccessToken }),
-    [status, user, signIn, signOut, getAccessToken],
+    () => ({ status, user, signIn, signOut, getAccessToken, apiFetch }),
+    [status, user, signIn, signOut, getAccessToken, apiFetch],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/lib/auth/context";
+import type { User } from "@/lib/auth/types";
 
 /**
  * The home screen, shown only to a signed-in user.
@@ -16,14 +17,45 @@ import { useAuth } from "@/lib/auth/context";
  */
 export default function Home() {
   const router = useRouter();
-  const { status, user, signOut } = useAuth();
+  const { status, user, signOut, apiFetch } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  /** The user as the backend sees it, from /auth/me. Null until it answers. */
+  const [verifiedUser, setVerifiedUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (status === "anonymous") {
       router.replace("/login");
     }
   }, [status, router]);
+
+  /**
+   * Confirms with the backend that the restored token is actually accepted.
+   * `apiFetch` handles an expired access token by refreshing and replaying, so
+   * a session that has merely aged is renewed here rather than dropped.
+   */
+  useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void apiFetch<{ user: User }>("/auth/me")
+      .then(({ user: fetched }) => {
+        if (!isCancelled) {
+          setVerifiedUser(fetched);
+        }
+      })
+      .catch(() => {
+        // A rejected session has already been cleared by the context, which
+        // flips `status` and sends this page to /login. Anything else is a
+        // transient failure, and the header falls back to the local user.
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [status, apiFetch]);
 
   if (status !== "authenticated") {
     return (
@@ -46,7 +78,9 @@ export default function Home() {
       <header className="flex items-center justify-between border-b border-neutral-900 px-6 py-4">
         <span className="text-sm text-neutral-500">
           Signed in as{" "}
-          <span className="text-neutral-300">{user?.username}</span>
+          <span className="text-neutral-300">
+            {(verifiedUser ?? user)?.username}
+          </span>
         </span>
         <button
           type="button"

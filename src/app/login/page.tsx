@@ -5,6 +5,13 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/lib/auth/context";
 import { ApiError } from "@/lib/auth/types";
+import { useBackendStatus, type BackendStatus } from "@/lib/auth/useBackendStatus";
+
+/** What to say when signing in cannot work, before the user has tried. */
+const BACKEND_NOTICE: Partial<Record<BackendStatus, string>> = {
+  offline: "The server is not responding. Sign-in will not work until it is back.",
+  unconfigured: "This build has no backend URL, so sign-in is unavailable.",
+};
 
 /**
  * Failures are deliberately not specific about which field was wrong. The
@@ -25,6 +32,8 @@ function messageFor(error: unknown): string {
 export default function LoginPage() {
   const router = useRouter();
   const { status, signIn } = useAuth();
+  const backendStatus = useBackendStatus();
+  const backendNotice = BACKEND_NOTICE[backendStatus];
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -84,6 +93,17 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-neutral-500">
             Enter your credentials to continue.
           </p>
+
+          {/* Stated up front rather than after a failed attempt, so a correct
+              password is not mistaken for a wrong one. */}
+          {backendNotice ? (
+            <p
+              role="status"
+              className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-300/90"
+            >
+              {backendNotice}
+            </p>
+          ) : null}
         </header>
 
         <form onSubmit={handleSubmit} noValidate>
